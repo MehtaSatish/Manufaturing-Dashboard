@@ -5,14 +5,17 @@ import plotly.graph_objects as go
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-
+import json
 st.set_page_config(layout="wide")
 
 st.title("📊 Device Manufacturing and Assembly Dashboard")
 
-# Google Sheets API Setup
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("google_sheets_key.json", scope)
+# Load credentials from Streamlit Secrets
+credentials_json = st.secrets["GOOGLE_SHEETS_CREDENTIALS"]
+credentials_dict = json.loads(credentials_json)  # Convert string to dictionary
+
+# Authenticate with Google Sheets
+creds = Credentials.from_service_account_info(credentials_dict)
 client = gspread.authorize(creds)
 
 # Open Google Sheet by URL
