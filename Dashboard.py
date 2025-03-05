@@ -4,7 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import datetime
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
 import json
 st.set_page_config(layout="wide")
 
