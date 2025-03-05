@@ -3,21 +3,25 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import datetime
-import gspread
-from google.oauth2.service_account import Credentials
+#import gspread
+#from google.oauth2.service_account import Credentials
+from st_gsheets_connection import GSheetsConnection
+
 st.set_page_config(layout="wide")
 
 st.title("📊 Device Manufacturing and Assembly Dashboard")
 
+# 1️⃣ Create a connection to Google Sheets
+conn = st.connection("gsheets", type=GSheetsConnection)
 # Load credentials from Streamlit Secrets
-credentials_dict = st.secrets["GOOGLE_SHEETS_CREDENTIALS"]
+#credentials_dict = st.secrets["GOOGLE_SHEETS_CREDENTIALS"]
 
 # Define the required scope
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+#SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 # Authenticate with Google Sheets using correct scope
-creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
-client = gspread.authorize(creds)
+#creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
+#client = gspread.authorize(creds)
 
 # Open Google Sheet by URL
 sheet_url = "https://docs.google.com/spreadsheets/d/1iWmEDXzfoqRPenAePMBOPSR-NCwelPCU-yZcQOyTltA/edit#gid=451421278"
