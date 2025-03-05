@@ -11,11 +11,10 @@ st.set_page_config(layout="wide")
 st.title("📊 Device Manufacturing and Assembly Dashboard")
 
 # Load credentials from Streamlit Secrets
-credentials_json = st.secrets["GOOGLE_SHEETS_CREDENTIALS"]
-#credentials_dict = json.loads(credentials_json)  # Convert string to dictionary
+credentials_dict = dict(st.secrets["GOOGLE_SHEETS_CREDENTIALS"])  # ✅ Convert ConfigObject to dict
 
 # Authenticate with Google Sheets
-creds = Credentials.from_service_account_info(dict(credentials_dict))
+creds = Credentials.from_service_account_info(credentials_dict)  # ✅ Ensure it's a dict
 client = gspread.authorize(creds)
 
 # Open Google Sheet by URL
