@@ -4,56 +4,51 @@ import plotly.express as px
 import plotly.graph_objects as go
 import datetime
 import gspread
-from google.oauth2.service_account import Credentials
-
-#from st_gsheets_connection import GSheetsConnection
+#from google.oauth2.service_account import Credentials
+from streamlit_gsheets import GSheetsConnection
 
 st.set_page_config(layout="wide")
 
 st.title("📊 Device Manufacturing and Assembly Dashboard")
 
 # 1️⃣ Create a connection to Google Sheets
-#conn = st.connection("gsheets", type=GSheetsConnection)
+conn = st.connection("gsheets", type=GSheetsConnection)
+
 # Load credentials from Streamlit Secrets
-credentials_dict = st.secrets["GOOGLE_SHEETS_CREDENTIALS"]
+#credentials_dict = st.secrets["GOOGLE_SHEETS_CREDENTIALS"]
 print("Credentials loaded successfully.") #add this line
-# Define the required scope
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
-# Authenticate with Google Sheets using correct scope
-creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
-client = gspread.authorize(creds)
-print("gspread client authorized successfully.") #add this line.
-# Get sheet URL from secrets
-# Get sheet URL from secrets
-sheet_url = "https://docs.google.com/spreadsheets/d/1iWmEDXzfoqRPenAePMBOPSR-NCwelPCU-yZcQOyTltA/edit"
-spreadsheet = client.open_by_url(sheet_url)
 
-# Read data from Google Sheets using st_gsheets_connection.
-try:
-    # Read data from "Sheet2"
-    df_sheet2 = conn.read(worksheet="Sheet2", usecols=list(range(20))) #read all colums
 
-    # Read data from "DashBoard"
-    df_dashboard = conn.read(worksheet="DashBoard", usecols=list(range(30))) #read all colums, adjust if needed.
 
-    # Trim spaces from column names in df_sheet2
-    df_sheet2.columns = df_sheet2.columns.str.strip()
+# 2️⃣ Fetch data from the Google Sheet
+sheet_url = "https://docs.google.com/spreadsheets/d/1iWmEDXzfoqRPenAePMBOPSR-NCwelPCU-yZcQOyTltA/edit#gid=451421278"
 
-    # Fetch data from DashBoard sheet (X8:Y8) for PWA Inventory scorecard
-    pwa_inventory_scorecard = df_dashboard.iloc[7, 23:25].to_frame().T #get row 8, columns X and Y, and convert it to a dataframe.
+# Read the "Sheet2" worksheet
+worksheet = conn.read(spreadsheet=sheet_url, worksheet="Sheet2", ttl=300)  # Cached for 5 min
 
-    # Fetch data from DashBoard sheet (AA2:AB4) for additional scorecards
-    additional_scorecards_df = df_dashboard.iloc[1:4, 26:28] # get rows 2,3,4 and columns AA and AB.
+# Convert to DataFrame
+df = pd.DataFrame(worksheet)
 
-    # Now you can use df_sheet2, df_dashboard, pwa_inventory_scorecard, and additional_scorecards_df in your dashboard.
-    st.dataframe(df_sheet2)
-    st.dataframe(df_dashboard)
-    st.dataframe(pwa_inventory_scorecard)
-    st.dataframe(additional_scorecards_df)
+if df.empty:
+    st.error("Failed to load data from Google Sheets.")
+    st.stop()
 
-except Exception as e:
-    st.error(f"An error occurred: {e}")
+# Trim spaces from column names
+df.columns = df.columns.str.strip()
+
+# 3️⃣ Fetch data for Dashboard worksheet
+dashboard_worksheet = conn.read(spreadsheet=sheet_url, worksheet="DashBoard", ttl=300)
+
+if dashboard_worksheet.empty:
+    st.error("Failed to load dashboard data from Google Sheets.")
+    st.stop()
+
+# Fetch specific ranges for PWA Inventory and Additional Inventory
+scorecard_data = dashboard_worksheet.iloc[7:8, 23:25].values  # X8:Y8
+additional_scorecards = dashboard_worksheet.iloc[1:4, 26:28].values  # AA2:AB4
+
+st.write("### Inventory Overview")
 
 st.write("### Inventory Overview")
 
@@ -276,8 +271,12 @@ with col2:
 #entries_to_show = st.selectbox("Show entries", options=[50, 100, 200, len(df)], index=0)
 #st.dataframe(df.head(entries_to_show))
 
-# Fetch data from Sheet1
-worksheet2 = spreadsheet.worksheet("Sheet1")  # Fetching data from Sheet1
+# 1️⃣ Fetch data from "Sheet1"
+worksheet2 = conn.read(spreadsheet=sheet_url, worksheet="Sheet1", ttl=300)  # ✅ Fetching Sheet1
+
+if worksheet2.empty:
+    st.error("Failed to load data from Sheet1.")
+    st.stop()
 data2 = worksheet2.get_values("A:I")
 df2 = pd.DataFrame(data2[1:], columns=data2[0])  # First row as header
 
@@ -291,7 +290,13 @@ df2.columns = df2.columns.str.strip()
 
 
 # Fetch data from DashBoard sheet (W9:X14)
-dashboard_worksheet = spreadsheet.worksheet("DashBoard")
+#dashboard_worksheet = spreadsheet.worksheet("DashBoard")
+# 1️⃣ Fetch data from "DashBoard"
+dashboard_worksheet = conn.read(spreadsheet=sheet_url, worksheet="DashBoard", ttl=300)  # ✅ Fetching DashBoard sheet
+
+if dashboard_worksheet.empty:
+    st.error("Failed to load data from DashBoard sheet.")
+    st.stop()
 dashboard_data = dashboard_worksheet.get_values("W9:X13")
 df_dashboard = pd.DataFrame(dashboard_data[1:], columns=dashboard_data[0])  # First row as header
 
