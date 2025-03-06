@@ -1,5 +1,5 @@
-streamlit-gsheets-connection
 streamlit
+streamlit-gsheets-connection
 pandas
 plotly
 gspread
