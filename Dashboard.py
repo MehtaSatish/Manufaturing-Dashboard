@@ -22,23 +22,35 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 # Authenticate with Google Sheets using correct scope
 #creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
 #client = gspread.authorize(creds)
+# Get sheet URL from secrets
+# Get sheet URL from secrets
+sheet_url = st.secrets["google_sheets"]["sheet_url"]
 
-# Open Google Sheet by URL
-sheet_url = "https://docs.google.com/spreadsheets/d/1iWmEDXzfoqRPenAePMBOPSR-NCwelPCU-yZcQOyTltA/edit#gid=451421278"
-spreadsheet = client.open_by_url(sheet_url)
-worksheet = spreadsheet.worksheet("Sheet2")  # Ensure this matches the actual sheet name
-dashboard_worksheet = spreadsheet.worksheet("DashBoard")
-# Read data from Google Sheets
-data = worksheet.get_all_records()
-df = pd.DataFrame(data)
+# Read data from Google Sheets using st_gsheets_connection.
+try:
+    # Read data from "Sheet2"
+    df_sheet2 = conn.read(worksheet="Sheet2", usecols=list(range(20))) #read all colums
 
-# Trim spaces from column names
-df.columns = df.columns.str.strip()
+    # Read data from "DashBoard"
+    df_dashboard = conn.read(worksheet="DashBoard", usecols=list(range(30))) #read all colums, adjust if needed.
 
- # Fetch data from DashBoard sheet (X8:Y8) for PWA Inventory scorecard
-dashboard_worksheet = spreadsheet.worksheet("DashBoard")
-scorecard_data = dashboard_worksheet.get_values("X8:Y8")
-additional_scorecards = dashboard_worksheet.get_values("AA2:AB4")
+    # Trim spaces from column names in df_sheet2
+    df_sheet2.columns = df_sheet2.columns.str.strip()
+
+    # Fetch data from DashBoard sheet (X8:Y8) for PWA Inventory scorecard
+    pwa_inventory_scorecard = df_dashboard.iloc[7, 23:25].to_frame().T #get row 8, columns X and Y, and convert it to a dataframe.
+
+    # Fetch data from DashBoard sheet (AA2:AB4) for additional scorecards
+    additional_scorecards_df = df_dashboard.iloc[1:4, 26:28] # get rows 2,3,4 and columns AA and AB.
+
+    # Now you can use df_sheet2, df_dashboard, pwa_inventory_scorecard, and additional_scorecards_df in your dashboard.
+    st.dataframe(df_sheet2)
+    st.dataframe(df_dashboard)
+    st.dataframe(pwa_inventory_scorecard)
+    st.dataframe(additional_scorecards_df)
+
+except Exception as e:
+    st.error(f"An error occurred: {e}")
 
 st.write("### Inventory Overview")
 
