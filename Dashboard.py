@@ -4,51 +4,34 @@ import plotly.express as px
 import plotly.graph_objects as go
 import datetime
 import gspread
-#from google.oauth2.service_account import Credentials
-from streamlit_gsheets import GSheetsConnection
+from oauth2client.service_account import ServiceAccountCredentials
 
 st.set_page_config(layout="wide")
 
 st.title("📊 Device Manufacturing and Assembly Dashboard")
 
-# 1️⃣ Create a connection to Google Sheets
-conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Load credentials from Streamlit Secrets
-#credentials_dict = st.secrets["GOOGLE_SHEETS_CREDENTIALS"]
-print("Credentials loaded successfully.") #add this line
+# Google Sheets API Setup
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+creds = ServiceAccountCredentials.from_json_keyfile_name("google_sheets_key.json", scope)
+client = gspread.authorize(creds)
 
-
-
-
-# 2️⃣ Fetch data from the Google Sheet
+# Open Google Sheet by URL
 sheet_url = "https://docs.google.com/spreadsheets/d/1iWmEDXzfoqRPenAePMBOPSR-NCwelPCU-yZcQOyTltA/edit#gid=451421278"
-
-# Read the "Sheet2" worksheet
-worksheet = conn.read(spreadsheet=sheet_url, worksheet="Sheet2", ttl=300)  # Cached for 5 min
-
-# Convert to DataFrame
-df = pd.DataFrame(worksheet)
-
-if df.empty:
-    st.error("Failed to load data from Google Sheets.")
-    st.stop()
+spreadsheet = client.open_by_url(sheet_url)
+worksheet = spreadsheet.worksheet("Sheet2")  # Ensure this matches the actual sheet name
+dashboard_worksheet = spreadsheet.worksheet("DashBoard")
+# Read data from Google Sheets
+data = worksheet.get_all_records()
+df = pd.DataFrame(data)
 
 # Trim spaces from column names
 df.columns = df.columns.str.strip()
 
-# 3️⃣ Fetch data for Dashboard worksheet
-dashboard_worksheet = conn.read(spreadsheet=sheet_url, worksheet="DashBoard", ttl=300)
-
-if dashboard_worksheet.empty:
-    st.error("Failed to load dashboard data from Google Sheets.")
-    st.stop()
-
-# Fetch specific ranges for PWA Inventory and Additional Inventory
-scorecard_data = dashboard_worksheet.iloc[7:8, 23:25].values  # X8:Y8
-additional_scorecards = dashboard_worksheet.iloc[1:4, 26:28].values  # AA2:AB4
-
-st.write("### Inventory Overview")
+ # Fetch data from DashBoard sheet (X8:Y8) for PWA Inventory scorecard
+dashboard_worksheet = spreadsheet.worksheet("DashBoard")
+scorecard_data = dashboard_worksheet.get_values("X8:Y8")
+additional_scorecards = dashboard_worksheet.get_values("AA2:AB4")
 
 st.write("### Inventory Overview")
 
@@ -138,7 +121,7 @@ fig_progress.update_layout(
     showlegend=True,
     height=220,  # Slightly increased thickness
     bargap=0.1,  # Reduce gap between bars for a solid look
-    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5),  # Move legend to bottom
+    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5, font=dict(size=14)),  # Move legend to bottom
 )
 
 st.plotly_chart(fig_progress, use_container_width=True)
@@ -271,12 +254,8 @@ with col2:
 #entries_to_show = st.selectbox("Show entries", options=[50, 100, 200, len(df)], index=0)
 #st.dataframe(df.head(entries_to_show))
 
-# 1️⃣ Fetch data from "Sheet1"
-worksheet2 = conn.read(spreadsheet=sheet_url, worksheet="Sheet1", ttl=300)  # ✅ Fetching Sheet1
-
-if worksheet2.empty:
-    st.error("Failed to load data from Sheet1.")
-    st.stop()
+# Fetch data from Sheet1
+worksheet2 = spreadsheet.worksheet("Sheet1")  # Fetching data from Sheet1
 data2 = worksheet2.get_values("A:I")
 df2 = pd.DataFrame(data2[1:], columns=data2[0])  # First row as header
 
@@ -290,13 +269,7 @@ df2.columns = df2.columns.str.strip()
 
 
 # Fetch data from DashBoard sheet (W9:X14)
-#dashboard_worksheet = spreadsheet.worksheet("DashBoard")
-# 1️⃣ Fetch data from "DashBoard"
-dashboard_worksheet = conn.read(spreadsheet=sheet_url, worksheet="DashBoard", ttl=300)  # ✅ Fetching DashBoard sheet
-
-if dashboard_worksheet.empty:
-    st.error("Failed to load data from DashBoard sheet.")
-    st.stop()
+dashboard_worksheet = spreadsheet.worksheet("DashBoard")
 dashboard_data = dashboard_worksheet.get_values("W9:X13")
 df_dashboard = pd.DataFrame(dashboard_data[1:], columns=dashboard_data[0])  # First row as header
 
@@ -435,7 +408,7 @@ if not df_stacked.empty:
             xaxis=dict(title=df_stacked.columns[0]),
             yaxis=dict(title="Value"),
             bargap=0.2, bargroupgap=0.02,
-            showlegend=True,
+            showlegend=False,
             legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5)  # Move legend to bottom
         )
 
