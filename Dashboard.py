@@ -25,7 +25,7 @@ creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
 # Get sheet URL from secrets
 # Get sheet URL from secrets
-sheet_url = "https://docs.google.com/spreadsheets/d/1iWmEDXzfoqRPenAePMBOPSR-NCwelPCU-yZcQOyTltA/edit#gid=451421278"
+sheet_url = "https://docs.google.com/spreadsheets/d/1iWmEDXzfoqRPenAePMBOPSR-NCwelPCU-yZcQOyTltA/edit"
 spreadsheet = client.open_by_url(sheet_url)
 
 # Read data from Google Sheets using st_gsheets_connection.
