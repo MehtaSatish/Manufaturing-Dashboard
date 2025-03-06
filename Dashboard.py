@@ -16,13 +16,14 @@ st.title("📊 Device Manufacturing and Assembly Dashboard")
 #conn = st.connection("gsheets", type=GSheetsConnection)
 # Load credentials from Streamlit Secrets
 credentials_dict = st.secrets["GOOGLE_SHEETS_CREDENTIALS"]
-
+print("Credentials loaded successfully.") #add this line
 # Define the required scope
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
 
 # Authenticate with Google Sheets using correct scope
 creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
 client = gspread.authorize(creds)
+print("gspread client authorized successfully.") #add this line.
 # Get sheet URL from secrets
 # Get sheet URL from secrets
 sheet_url = "https://docs.google.com/spreadsheets/d/1iWmEDXzfoqRPenAePMBOPSR-NCwelPCU-yZcQOyTltA/edit"
