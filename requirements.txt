@@ -1,7 +1,8 @@
+streamlit-gsheets
 streamlit
 pandas
 plotly
 gspread
 oauth2client
 python-dotenv
-st-gsheets-connection
+
