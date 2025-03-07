@@ -6,7 +6,53 @@ import plotly.graph_objects as go
 import datetime
 from google.oauth2.service_account import Credentials
 
-st.set_page_config(layout="wide")
+
+# Set Page Config
+st.set_page_config(layout="wide", page_title="📊 Device Manufacturing Dashboard")
+
+# User Authentication (Manual)
+USER_CREDENTIALS = {
+    "admin": "password123",  # Change this to your own credentials
+    "mehta": "mysecurepass"
+}
+
+# Initialize session state for login
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
+def login():
+    """Login function to authenticate user"""
+    st.title("🔐 Login Page")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+            st.session_state.logged_in = True
+            st.session_state.username = username
+            st.success("✅ Login Successful!")
+            st.rerun()
+
+        else:
+            st.error("❌ Invalid Username or Password!")
+
+def logout():
+    """Logout function"""
+    st.session_state.logged_in = False
+    st.session_state.username = None  # Optional: Clear username
+    st.toast("🔒 Logged out successfully!", icon="✅")  # Optional: Show a logout message
+    st.session_state.show_login = True  # ✅ Set flag to show login page
+    st.rerun()  # ✅ Refresh the app to show login page
+
+
+# If not logged in, show login page
+if not st.session_state.logged_in:
+    login()
+    st.stop()  # Prevent further execution until login
+
+# ---- MAIN APP ----
+st.sidebar.button("Logout", on_click=logout)
+st.sidebar.write(f"👤 Logged in as: `{st.session_state.username}`")
+
 
 st.title("📊 Device Manufacturing and Assembly Dashboard")
 
