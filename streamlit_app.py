@@ -355,4 +355,109 @@ with col1:
     
     st.plotly_chart(fig_doughnut, use_container_width=True)
 
+# Fetch data from DashBoard sheet (X15:Z27) for stacked bar and stacked line chart
+stacked_data = dashboard_worksheet.get_values("X15:Z27")
+df_stacked = pd.DataFrame(stacked_data[1:], columns=stacked_data[0])  # First row as header
+
+# Convert columns to numeric, skipping rows with zero values
+df_stacked[df_stacked.columns[1]] = pd.to_numeric(df_stacked[df_stacked.columns[1]], errors='coerce')
+df_stacked[df_stacked.columns[2]] = pd.to_numeric(df_stacked[df_stacked.columns[2]], errors='coerce')
+df_stacked = df_stacked[(df_stacked[df_stacked.columns[1]] > 0) | (df_stacked[df_stacked.columns[2]] > 0)]
+st.write("### Monthly Production (Stacked Bar)")
+# Create two columns
+col1, col2 = st.columns(2)
+
+# Create stacked bar chart with data labels
+if not df_stacked.empty:
+    with col1:
+        
+        fig_stacked = go.Figure()
+
+        # Add first dataset (Y column)
+        fig_stacked.add_trace(go.Bar(
+            x=df_stacked[df_stacked.columns[0]],
+            y=df_stacked[df_stacked.columns[1]],
+            name=df_stacked.columns[1],
+            marker=dict(color="#636EFA", opacity=0.9, line=dict(width=0))
+        ))
+
+        # Add second dataset (Z column) stacked above Y
+        fig_stacked.add_trace(go.Bar(
+            x=df_stacked[df_stacked.columns[0]],
+            y=df_stacked[df_stacked.columns[2]],
+            name=df_stacked.columns[2],
+            marker=dict(color="#FFA600", opacity=0.9, line=dict(width=0))
+        ))
+
+        # Apply rounded corners
+        fig_stacked.update_traces(marker=dict(cornerradius=10))
+
+        # Add data labels on top of each stacked bar (Y + Z)
+        for i, row in df_stacked.iterrows():
+            total_value = row[df_stacked.columns[1]] + row[df_stacked.columns[2]]
+            fig_stacked.add_trace(go.Scatter(
+                x=[row[df_stacked.columns[0]]],
+                y=[total_value],
+                mode="markers+text",
+                marker=dict(size=30, color="#FF5733", opacity=0.6),  # Adjust color if needed
+                text=[total_value],
+                textfont=dict(size=14, color="white"),
+                textposition="middle center",
+                hoverinfo="none"
+            ))
+
+        # Improve layout with bottom legend
+        fig_stacked.update_layout(
+            barmode='stack',
+            xaxis=dict(title=df_stacked.columns[0]),
+            yaxis=dict(title="Value"),
+            bargap=0.2, bargroupgap=0.02,
+            showlegend=False,
+            legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5)  # Move legend to bottom
+        )
+
+        st.plotly_chart(fig_stacked, use_container_width=True)
+
+
+# Stacked Line Chart in Second Column
+if not df_stacked.empty:
+    with col2:
+        #st.write("### "")")
+        fig_line = go.Figure()
+
+        colors = ["#636EFA", "#FFA600"]  # Dark theme-friendly colors
+
+        # Add first dataset (Y column)
+        fig_line.add_trace(go.Scatter(
+            x=df_stacked[df_stacked.columns[0]],
+            y=df_stacked[df_stacked.columns[1]],
+            mode="lines",
+            name=df_stacked.columns[1],
+            line=dict(shape="spline", width=3, color=colors[0]),
+            fill="tonexty",  # Fill below the line
+            fillcolor=f"rgba{tuple(int(colors[0][1:][j:j+2], 16) for j in (0, 2, 4)) + (0.3,)}"
+        ))
+
+        # Add second dataset (Z column) stacked above Y
+        fig_line.add_trace(go.Scatter(
+            x=df_stacked[df_stacked.columns[0]],
+            y=df_stacked[df_stacked.columns[2]] + df_stacked[df_stacked.columns[1]],  # Stack Z on top of Y
+            mode="lines",
+            name=df_stacked.columns[2],
+            line=dict(shape="spline", width=3, color=colors[1]),
+            fill="tonexty",  # Fill above the first line
+            fillcolor=f"rgba{tuple(int(colors[1][1:][j:j+2], 16) for j in (0, 2, 4)) + (0.3,)}"
+        ))
+
+        # Improve layout for dark theme and move legend to bottom
+        fig_line.update_layout(
+            xaxis=dict(title=df_stacked.columns[0], gridcolor="rgba(255,255,255,0.2)"),
+            yaxis=dict(title="Value", gridcolor="rgba(255,255,255,0.2)"),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            showlegend=True,
+            legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5)  # Move legend to bottom
+        )
+
+        st.plotly_chart(fig_line, use_container_width=True)
 
