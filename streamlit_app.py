@@ -406,7 +406,7 @@ df_stacked = pd.DataFrame(stacked_data[1:], columns=stacked_data[0])  # First ro
 df_stacked[df_stacked.columns[1]] = pd.to_numeric(df_stacked[df_stacked.columns[1]], errors='coerce')
 df_stacked[df_stacked.columns[2]] = pd.to_numeric(df_stacked[df_stacked.columns[2]], errors='coerce')
 df_stacked = df_stacked[(df_stacked[df_stacked.columns[1]] > 0) | (df_stacked[df_stacked.columns[2]] > 0)]
-st.write("### Monthly Production (Stacked Bar)")
+st.write("### Monthly Production")
 # Create two columns
 col1, col2 = st.columns(2)
 
