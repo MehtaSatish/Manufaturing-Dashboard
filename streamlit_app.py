@@ -11,10 +11,7 @@ from google.oauth2.service_account import Credentials
 st.set_page_config(layout="wide", page_title="📊 Device Manufacturing Dashboard")
 
 # User Authentication (Manual)
-USER_CREDENTIALS = {
-    "admin": "password123",  # Change this to your own credentials
-    "mehta": "mysecurepass"
-}
+USER_CREDENTIALS = st.secrets["USER_CREDENTIALS"]
 
 # Initialize session state for login
 if "logged_in" not in st.session_state:
