@@ -10,12 +10,17 @@ from google.oauth2.service_account import Credentials
 # Set Page Config
 st.set_page_config(layout="wide", page_title="📊 Device Manufacturing Dashboard")
 
-# User Authentication (Manual)
+# Toggle this to True or False to enable/disable login requirement
+ENABLE_LOGIN = True  # Set False to skip login during development
+
+# Load user credentials from secrets
 USER_CREDENTIALS = st.secrets["USER_CREDENTIALS"]
 
-# Initialize session state for login
+# Initialize required session state variables if not present
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = None
 
 def login():
     """Login function to authenticate user"""
@@ -28,30 +33,32 @@ def login():
             st.session_state.username = username
             st.success("✅ Login Successful!")
             st.rerun()
-
         else:
             st.error("❌ Invalid Username or Password!")
 
 def logout():
     """Logout function"""
     st.session_state.logged_in = False
-    st.session_state.username = None  # Optional: Clear username
-    st.toast("🔒 Logged out successfully!", icon="✅")  # Optional: Show a logout message
-    st.session_state.show_login = True  # ✅ Set flag to show login page
-    st.rerun()  # ✅ Refresh the app to show login page
+    st.session_state.username = None
+    st.success("🔒 Logged out successfully!")
+    st.rerun()
 
-
-# If not logged in, show login page
-if not st.session_state.logged_in:
-    login()
-    st.stop()  # Prevent further execution until login
+if ENABLE_LOGIN:
+    if not st.session_state.logged_in:
+        login()
+        st.stop()
+else:
+    # Auto-login a default user (optional) during development
+    if not st.session_state.logged_in:
+        st.session_state.logged_in = True
+        st.session_state.username = "dev_user"
 
 # ---- MAIN APP ----
 st.sidebar.button("Logout", on_click=logout)
 st.sidebar.write(f"👤 Logged in as: `{st.session_state.username}`")
 
-
 st.title("📊 Device Manufacturing and Assembly Dashboard")
+
 
 # ✅ Define the correct OAuth Scopes
 SCOPES = [
@@ -126,56 +133,126 @@ if additional_scorecards:
                     height=150  # Force smaller height to reduce spacing
                 )
                 st.plotly_chart(fig_scorecard, use_container_width=True, config={"displayModeBar": False})
-# Fetch data from DashBoard sheet (W1:Z2) for progress bar
+# Fetch header row for both batches (W1:Z1)
+progress_labels = dashboard_worksheet.get_values("W1:Z1")
+if progress_labels:
+    labels = progress_labels[0]
+
+
+# ---- Fetch Data from Dashboard Sheet ----
 progress_data = dashboard_worksheet.get_values("W1:Z2")
 if progress_data:
     labels = progress_data[0]
     values = list(map(int, progress_data[1]))
-    total_pwa = values[-1] if values[-1] > 0 else 1  # Avoid division by zero
-    
-   
-    fig_progress = go.Figure()
-    fig_progress.add_trace(go.Bar(
-        y=["PWA"],
-        x=[values[0]],
-        name=labels[0],
-        marker=dict(color="#636EFA"),
-        orientation="h"
-    ))
-    fig_progress.add_trace(go.Bar(
-        y=["PWA"],
-        x=[values[1]],
-        name=labels[1],
-        marker=dict(color="#EF553B"),
-        orientation="h"
-    ))
-    fig_progress.add_trace(go.Bar(
-        y=["PWA"],
-        x=[values[2]],
-        name=labels[2],
-        marker=dict(color="#00CC96"),
-        orientation="h"
-    ))
-    
-    fig_progress.update_traces(
-    marker=dict(
-        cornerradius=5,  # Rounded edges
-        line=dict(width=1, color="white"),  # Add subtle white separators
-    )
+
+    used_pwa = values[labels.index('Used')]
+    failed_pwa = values[labels.index('Failed')] + used_pwa
+    total_pwa = values[labels.index('Total PWA')]
+    gauge_start = 0
+
+# Define columns with equal widths
+col1, col2, col3 = st.columns([1, 1, 1])
+
+
+def draw_gauge(col, title, used_pwa, failed_pwa, total_pwa):
+    with col:
+        percentage = (used_pwa / total_pwa) * 100 if total_pwa else 0
+
+        fig = go.Figure()
+        fig.add_trace(go.Indicator(
+            mode="gauge+number",
+            value=used_pwa,
+            number={'font': {'size': 24}},  # Smaller font
+            gauge={
+                'shape': "angular",
+                'axis': {
+                    'range': [0, total_pwa],
+                    'tickmode': "array",
+                    'tickvals': [0, used_pwa, failed_pwa, total_pwa],
+                    'tickfont': {'size': 16}  # Smaller ticks
+                },
+                'bar': {'color': "rgba(0,0,0,0)"},
+                'bgcolor': "rgba(0,0,0,0)",
+                'steps': [
+                    {'range': [0, used_pwa], 'color': "#66cdfb"},
+                    {'range': [used_pwa, failed_pwa], 'color': "#FF5733"},
+                    {'range': [failed_pwa, total_pwa], 'color': "#D3D3D3"},
+                ],
+                'threshold': {
+                    'line': {'color': "#D3D3D3", 'width': 0},
+                    'thickness': 0
+                }
+            },
+            domain={'x': [0.1, 0.9], 'y': [0, 0.7]}  # Tighter bounds
+        ))
+
+        fig.update_layout(
+            margin=dict(t=10, b=10, l=10, r=10),
+            height=260,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+        )
+
+        st.caption(title)
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Add percentage line below
+        st.markdown(
+            f"<div style='text-align:center; margin-top:-10px;'>"
+            f"<hr style='border-top: 1px solid #bbb; width: 60%; margin: 2px auto;'/>"
+            f"<span style='font-size: 24px; color: #ddd;'>{percentage:.1f}% used</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+
+# 1st Chart
+draw_gauge(col2, "Batch 3 Invertory", used_pwa, failed_pwa, total_pwa)
+
+# 2nd Chart (Batch W3)
+progress_data = dashboard_worksheet.get_values("W1:Z1")
+count_data = dashboard_worksheet.get_values("W3:Z3")
+if progress_data and count_data:
+    labels = progress_data[0]
+    values = list(map(int, count_data[0]))
+    used_pwa = values[labels.index('Used')]
+    failed_pwa = values[labels.index('Failed')] + used_pwa
+    total_pwa = values[labels.index('Total PWA')]
+    draw_gauge(col1, "Batch 2 Inventory", used_pwa, failed_pwa, total_pwa)
+
+# 3rd Chart (Batch W4)
+label_row = dashboard_worksheet.get_values("W1:Z1")
+count_row = dashboard_worksheet.get_values("W4:Z4")
+if label_row and count_row:
+    labels = label_row[0]
+    values = list(map(int, count_row[0]))
+    used_pwa = values[labels.index('Used')]
+    failed_pwa = values[labels.index('Failed')] + used_pwa
+    total_pwa = values[labels.index('Total PWA')]
+    draw_gauge(col3, "Batch 4 Inventory", used_pwa, failed_pwa, total_pwa)
+# ----- Shared Legend Below Charts -----
+st.markdown(
+    """
+    <div style='text-align:center; margin-top: 20px;'>
+        <span style='display:inline-block; margin-right: 20px;'>
+            <span style='display:inline-block; width:14px; height:14px; background-color:#66cdfb; border-radius:3px; margin-right:6px;'></span>
+            <span style='color:#ddd;'>Used PWA</span>
+        </span>
+        <span style='display:inline-block; margin-right: 20px;'>
+            <span style='display:inline-block; width:14px; height:14px; background-color:#FF5733; border-radius:3px; margin-right:6px;'></span>
+            <span style='color:#ddd;'>Failed PWA</span>
+        </span>
+        <span style='display:inline-block;'>
+            <span style='display:inline-block; width:14px; height:14px; background-color:#D3D3D3; border-radius:3px; margin-right:6px;'></span>
+            <span style='color:#ddd;'>Remaining PWA</span>
+        </span>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
 
-fig_progress.update_layout(
-    title="Batch 3 Board Inventory Tracking",
-    xaxis=dict(title="Count", range=[0, total_pwa]),
-    barmode="stack",
-    showlegend=True,
-    height=220,  # Slightly increased thickness
-    bargap=0.1,  # Reduce gap between bars for a solid look
-    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5, font=dict(size=14)),  # Move legend to bottom
-)
 
-st.plotly_chart(fig_progress, use_container_width=True)
-
+# --- DEVICE ASSEMBLY TREND DASHBOARD (Batch 3) ---
 st.write("### Device Assembly Trend")
 # Ensure the required columns exist
 required_columns = ["Date of Assambly", "Device Type", "PWA No"]
@@ -317,33 +394,97 @@ df2.columns = df2.columns.str.strip()
 #st.dataframe(df2.head(entries_to_show2))
 
 
-# Fetch data from DashBoard sheet (W9:X14)
-dashboard_worksheet = spreadsheet.worksheet("DashBoard")
+# --- PWA DISTRIBUTION DASHBOARD (Batch 4 above Batch 3) ---
+
+st.write("### PWA Distribution")
+
+# --- BATCH 4 DATA (example: device types in X10:X14, counts in Y10:Y14) ---
+# Adjust the ranges below as per actual dashboard layout
+
+# Fetch device types (assumed same as Batch 3, i.e., header row of W9:X13, column X)
+device_types_batch = dashboard_worksheet.get_values("W10:W13")
+device_types_batch = [item[0] for item in device_types_batch] if device_types_batch else []
+
+# Fetch Batch 4 counts (Y10:Y14)
+batch4_counts = dashboard_worksheet.get_values("Y10:Y13")
+batch4_counts = [int(item[0]) if item and item[0] else 0 for item in batch4_counts] if batch4_counts else []
+
+# Prepare DataFrame for Batch 4
+if device_types_batch and batch4_counts and len(device_types_batch) == len(batch4_counts):
+    df_dashboard4 = pd.DataFrame({
+        "Device Type": device_types_batch,
+        "Count": batch4_counts
+    })
+
+    col4_1, col4_2 = st.columns(2)
+    # Batch 4 Bar Chart
+    with col4_2:
+        fig_dashboard4 = go.Figure()
+        fig_dashboard4.add_trace(go.Bar(
+            x=df_dashboard4["Device Type"],
+            y=df_dashboard4["Count"],
+            marker=dict(color="#FFA600", opacity=0.9),
+        ))
+        fig_dashboard4.update_traces(marker=dict(cornerradius=10))
+
+        for i, row in df_dashboard4.iterrows():
+            fig_dashboard4.add_trace(go.Scatter(
+                x=[row["Device Type"]],
+                y=[row["Count"]],
+                mode="markers+text",
+                marker=dict(size=30, color="#FFA600", opacity=0.6),
+                text=[row["Count"]],
+                textfont=dict(size=14, color="white"),
+                textposition="middle center",
+                hoverinfo="none"
+            ))
+        fig_dashboard4.update_layout(
+            title="Batch 4 Distribution",
+            xaxis=dict(type='category', tickangle=0, title="Device Type"),
+            yaxis=dict(title="Count"),
+            bargap=0.2, bargroupgap=0.02,
+            showlegend=False
+        )
+        st.plotly_chart(fig_dashboard4, use_container_width=True)
+
+    # Batch 4 Doughnut Chart
+    with col4_1:
+        fig_doughnut4 = go.Figure()
+        fig_doughnut4.add_trace(go.Pie(
+            labels=df_dashboard4["Device Type"],
+            values=df_dashboard4["Count"],
+            hole=0.4,
+            marker=dict(colors=["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A"]),
+            textinfo="percent+label"
+        ))
+        fig_doughnut4.update_layout(
+            title="Batch 4 Percentage Distribution",
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=-0.2,
+                xanchor="right",
+                x=0.85
+            )
+        )
+        st.plotly_chart(fig_doughnut4, use_container_width=True)
+
+# --- BATCH 3 DATA (Original code, just after Batch 4 section) ---
 dashboard_data = dashboard_worksheet.get_values("W9:X13")
 df_dashboard = pd.DataFrame(dashboard_data[1:], columns=dashboard_data[0])  # First row as header
-
-# Trim spaces from column names
 df_dashboard.columns = df_dashboard.columns.str.strip()
 
-
-# Trim spaces from column names
-df_dashboard.columns = df_dashboard.columns.str.strip()
-
-
-
-# Create bar chart from DashBoard sheet data with rounded edges and emphasized labels
-if not df_dashboard.empty:
+col3_1, col3_2 = st.columns(2)
+# Bar Chart for Batch 3
+with col3_2:
     fig_dashboard = go.Figure()
     fig_dashboard.add_trace(go.Bar(
         x=df_dashboard[df_dashboard.columns[0]],
         y=pd.to_numeric(df_dashboard[df_dashboard.columns[1]], errors='coerce'),
         marker=dict(color="#FFA600", opacity=0.9),
     ))
-    
-    # Apply rounded corners
     fig_dashboard.update_traces(marker=dict(cornerradius=10))
-    
-    # Add circles around data labels for emphasis
+
     for i, row in df_dashboard.iterrows():
         fig_dashboard.add_trace(go.Scatter(
             x=[row[df_dashboard.columns[0]]],
@@ -355,15 +496,6 @@ if not df_dashboard.empty:
             textposition="middle center",
             hoverinfo="none"
         ))
-    
-    # Improve layout
-st.write("### PWA Distribution")
-
-# Create two columns for the charts
-col1, col2 = st.columns(2)
-
-# Bar Chart in first column
-with col2:
     fig_dashboard.update_layout(
         title="Batch 3 Distribution",
         xaxis=dict(type='category', tickangle=0, title=df_dashboard.columns[0]),
@@ -373,30 +505,28 @@ with col2:
     )
     st.plotly_chart(fig_dashboard, use_container_width=True)
 
-# Doughnut Chart in second column
-with col1:
-    if not df_dashboard.empty:
-        fig_doughnut = go.Figure()
-        fig_doughnut.add_trace(go.Pie(
+# Doughnut Chart for Batch 3
+with col3_1:
+    fig_doughnut = go.Figure()
+    fig_doughnut.add_trace(go.Pie(
         labels=df_dashboard[df_dashboard.columns[0]],
         values=pd.to_numeric(df_dashboard[df_dashboard.columns[1]], errors='coerce'),
-        hole=0.4,  # Creates the doughnut shape
+        hole=0.4,
         marker=dict(colors=["#636EFA", "#EF553B", "#00CC96", "#AB63FA", "#FFA15A"]),
         textinfo="percent+label"
     ))
-
     fig_doughnut.update_layout(
-        title="Percentage Distribution",
+        title="Batch 3 Percentage Distribution",
         legend=dict(
-            orientation="h",   # Horizontal layout
-            yanchor="bottom",  # Anchors legend to the bottom
-            y=-0.2,            # Moves it below the chart
-            xanchor="right",   # Aligns legend to the right
-            x=0.85                # Positions legend to the right
+            orientation="h",
+            yanchor="bottom",
+            y=-0.2,
+            xanchor="right",
+            x=0.85
         )
     )
-    
     st.plotly_chart(fig_doughnut, use_container_width=True)
+
 
 # Fetch data from DashBoard sheet (X15:Z27) for stacked bar and stacked line chart
 stacked_data = dashboard_worksheet.get_values("X15:Z27")
@@ -503,4 +633,5 @@ if not df_stacked.empty:
         )
 
         st.plotly_chart(fig_line, use_container_width=True)
+
 
